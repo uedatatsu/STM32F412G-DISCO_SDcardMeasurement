@@ -3272,6 +3272,11 @@ FRESULT f_mount (
 	/* Get logical drive number */
 	vol = get_ldnumber(&rp);
 	if (vol < 0) return FR_INVALID_DRIVE;
+	
+	if(!fs){
+		disk_deinitialize(LD2PD(vol));	/* Unmount the volume */
+	}
+
 	cfs = FatFs[vol];					/* Pointer to fs object */
 
 	if (cfs) {

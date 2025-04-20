@@ -33,6 +33,7 @@
 /* USER CODE END FirstSection */
 /* Includes ------------------------------------------------------------------*/
 #include "bsp_driver_sd.h"
+#include <stdio.h>
 
 /* Extern variables ---------------------------------------------------------*/
 
@@ -312,5 +313,21 @@ __weak uint8_t BSP_SD_IsDetected(void)
 }
 
 /* USER CODE BEGIN AdditionalCode */
-/* user code can be inserted here */
+/**
+  * @brief  DeInitializes the SD card device.
+  * @retval SD status
+  */
+ __weak uint8_t BSP_SD_DeInit(void)
+{
+  uint8_t sd_state = MSD_OK;
+
+  /* HAL SD deinitialization */
+  sd_state = HAL_SD_DeInit(&hsd);
+  if (sd_state != MSD_OK)
+  {
+    sd_state = MSD_ERROR;
+  }
+
+  return sd_state;
+}
 /* USER CODE END AdditionalCode */

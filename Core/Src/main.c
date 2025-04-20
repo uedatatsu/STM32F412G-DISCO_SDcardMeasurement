@@ -53,6 +53,8 @@ SD_HandleTypeDef hsd;
 DMA_HandleTypeDef hdma_sdio_rx;
 DMA_HandleTypeDef hdma_sdio_tx;
 
+TIM_HandleTypeDef htim6;
+
 UART_HandleTypeDef huart2;
 
 SRAM_HandleTypeDef hsram1;
@@ -64,6 +66,7 @@ volatile uint8_t dataReady = 0; // データが準備完了したことを示す
 uint8_t inputMode = INPUT_MAIN; // 入力モードの初期値
 extern volatile uint8_t dataReady_sdFormat; // SDフォーマット用フラグ
 extern volatile uint8_t ansFlag; // フォーマット確認用フラグ
+uint8_t sdDetectedStatus = 0; // SDカード検出状態
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -78,6 +81,7 @@ static void MX_I2S3_Init(void);
 static void MX_QUADSPI_Init(void);
 static void MX_SDIO_SD_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM6_Init(void);
 void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
@@ -134,7 +138,10 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USB_HOST_Init();
   MX_FATFS_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
+  HAL_TIM_Base_Start_IT(&htim6); // タイマ6を開始
+
   // MX_LCD_Init();
 
   // UART受信割り込みを開始
@@ -156,7 +163,6 @@ int main(void)
     /* USER CODE BEGIN 3 */
     if (dataReady) {
       handle_event(eventFlag); // イベントハンドラを呼び出す
-      inputMode = INPUT_MAIN; // メインモードに戻す
       dataReady = 0; // フラグをリセット
     }
   }
@@ -405,6 +411,44 @@ static void MX_SDIO_SD_Init(void)
 }
 
 /**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 99;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 19999;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -585,7 +629,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : uSD_DETECT_Pin */
   GPIO_InitStruct.Pin = uSD_DETECT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(uSD_DETECT_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
@@ -648,6 +692,49 @@ static void MX_FSMC_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/**
+  * @brief  Period elapsed callback in non-blocking mode
+  * @param  htim TIM handle
+  * @retval None
+  */
+ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+ {
+  
+
+  static uint8_t prevStatus = 0; // 前回のSDカード検出状態を保存する変数
+  static uint8_t count = 0; // チャタリングカウント変数
+
+   // どのタイマーからの割り込みかを確認 (複数のタイマーを使用する場合に重要)
+   if (htim->Instance == TIM6)
+   {
+    //  printf("BSP_SD_IsDetected(): %d\r\n", BSP_SD_IsDetected() );
+     // ここに20msごとに実行したい処理を記述します
+
+      if(BSP_SD_IsDetected() == SD_PRESENT) { // SDカードが挿入されている場合
+        count++; // カウントを増加
+        if(count >= 2) { // 40ms経過した場合
+          count = 0; // カウントをリセット
+          sdDetectedStatus = 1; // SDカード検出フラグをセット
+        }
+      } else { // SDカードが取り外されている場合
+        count = 0; // カウントをリセット
+        sdDetectedStatus = 0; // SDカード検出フラグをリセット
+      }
+
+      // SDカードの検出状態を確認し、変化があった場合に処理を行う
+      if(prevStatus != sdDetectedStatus) { // SDカードの検出状態が変化した場合
+        prevStatus = sdDetectedStatus; // 現在の状態を保存
+        if(sdDetectedStatus == 1) { // SDカードが挿入された場合
+          printf("SD card detected!\r\n");
+        } else { // SDカードが取り外された場合
+          printf("SD card removed!\r\n");
+          f_mount(NULL, (TCHAR const*)SDPath, 1); // SDカードのマウント解除
+        }
+      }
+
+   }
+ }
+
 /**
   * @brief LCD Initialization Function
   * @param None

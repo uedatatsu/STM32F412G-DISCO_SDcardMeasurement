@@ -10,8 +10,9 @@ volatile uint8_t dataReady_sdFormat = 0; // データが準備完了したこと
 volatile uint8_t ansFlag = 0; // フォーマット確認用フラグ
 extern uint8_t rxBuffer[1]; // 受信データ用バッファ
 extern int inputMode; // 入力モード
+volatile uint8_t enableACMD23 = 0; // ACMD23を有効にするフラグ
 
-static int block_multiplier = 128; // 必要に応じてmain.c等から変更可能
+static int block_multiplier = 128 * 3 + 3; // 必要に応じてmain.c等から変更可能
 
 void handle_event(uint8_t eventFlag) {
     switch (eventFlag) {
@@ -42,14 +43,6 @@ void handle_event(uint8_t eventFlag) {
                 f_mount(NULL, (TCHAR const*)SDPath, 1);
             } else {
                 printf("SD mount error\r\n");
-                uint8_t rtext[_MAX_SS];/* File read buffer */
-                f_mkfs(SDPath, FM_ANY, 0, rtext, sizeof(rtext)); // SDカードの初期化
-                res = f_mount(&SDFatFS, (TCHAR const*)SDPath, 1); // 再度マウント
-                if (res == FR_OK) {
-                    printf("SD card formatted and mounted successfully\r\n");
-                } else {
-                    printf("SD mount error after format\r\n");
-                }
             }
             break;
         }
@@ -99,6 +92,51 @@ void handle_event(uint8_t eventFlag) {
             free(binData);
             break;
         }
+        case '5': {
+            FRESULT res;
+            UINT bw;
+            uint32_t total_size = BLOCK_SIZE * block_multiplier;
+            uint8_t *binData = malloc(total_size);
+            if (binData == NULL) {
+                printf("Memory alloc error\r\n");
+                break;
+            }
+            for (uint32_t i = 0; i < total_size; i++) {
+                binData[i] = (uint8_t)(i & 0xFF);
+            }
+            // DWTサイクルカウンタ有効化
+            CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+            DWT->CYCCNT = 0;
+            DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+            res = f_mount(&SDFatFS, (TCHAR const*)SDPath, 1);
+            if (res == FR_OK) {
+                res = f_open(&SDFile, "binary.bin", FA_WRITE | FA_CREATE_ALWAYS);
+                if (res == FR_OK) {
+                    enableACMD23 = 1; // ACMD23を有効にする
+                    uint32_t start = DWT->CYCCNT;
+                    
+                    res = f_write(&SDFile, binData, total_size, &bw);
+                    
+                    uint32_t end = DWT->CYCCNT;
+                    enableACMD23 = 0; // ACMD23を無効にする
+                    float us = (float)(end - start) / (SystemCoreClock / 1000000.0f);
+                    printf("f_write requested: %lu bytes, actually written: %lu bytes\r\n", total_size, (uint32_t)bw);
+                    if (res == FR_OK && bw == total_size) {
+                        printf("SD binary write OK (%lu bytes, %.2f us)\r\n", total_size, us);
+                    } else {
+                        printf("SD binary write error\r\n");
+                    }
+                    f_close(&SDFile);
+                } else {
+                    printf("File open error\r\n");
+                }
+                f_mount(NULL, (TCHAR const*)SDPath, 1);
+            } else {
+                printf("SD mount error\r\n");
+            }
+            free(binData);
+            break;
+        }
         case '9': {
             printf("SDカードをフォーマットすると全てのデータが消去されます。実行しますか？ (y/n): \r\n");
             ansFlag = 0; // フラグをリセット
@@ -110,6 +148,7 @@ void handle_event(uint8_t eventFlag) {
                         break; // フォーマット実行
                     } else if (ansFlag == 'n' || ansFlag == 'N') {
                         printf("フォーマットを中止しました。\r\n");
+                        inputMode = INPUT_MAIN; // メインモードに戻す
                         return;
                     } else {
                         printf("無効な入力です。y/nで答えてください。\r\n");
@@ -118,6 +157,7 @@ void handle_event(uint8_t eventFlag) {
                 }
 
             }
+            inputMode = INPUT_MAIN; // メインモードに戻す
             
 
             FRESULT res;
@@ -128,6 +168,7 @@ void handle_event(uint8_t eventFlag) {
             res = f_mount(&SDFatFS, (TCHAR const*)SDPath, 1); // 再度マウント
             if (res == FR_OK) {
                 printf("SD card formatted and mounted successfully\r\n");
+                res = f_open(&SDFile, "binary.bin", FA_WRITE | FA_CREATE_ALWAYS);
                 DWORD fre_clust, fre_sect, tot_sect;
                 FATFS *fs;
                 fs = &SDFatFS;
@@ -153,6 +194,9 @@ void handle_event(uint8_t eventFlag) {
                 } else {
                     printf("Failed to get FS info\r\n");
                 }
+                f_close(&SDFile);
+                f_unlink ("binary.bin"); // テストファイルを削除
+                f_mount(NULL, (TCHAR const*)SDPath, 1); // アンマウント
             } else {
                 printf("SD mount error after format\r\n");
             }

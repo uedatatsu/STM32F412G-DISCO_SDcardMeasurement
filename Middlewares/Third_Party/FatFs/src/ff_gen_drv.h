@@ -46,6 +46,7 @@ typedef struct
 #if _USE_IOCTL == 1
   DRESULT (*disk_ioctl)      (BYTE, BYTE, void*);              /*!< I/O control operation when _USE_IOCTL = 1 */
 #endif /* _USE_IOCTL == 1 */
+  DRESULT (*disk_deinitialize)(void);                     /*!< Deinitialize Disk Drive                   */
 
 }Diskio_drvTypeDef;
 

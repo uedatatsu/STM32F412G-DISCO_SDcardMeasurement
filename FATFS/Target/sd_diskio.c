@@ -94,6 +94,7 @@ DRESULT SD_write (BYTE, const BYTE*, DWORD, UINT);
 #if _USE_IOCTL == 1
 DRESULT SD_ioctl (BYTE, BYTE, void*);
 #endif  /* _USE_IOCTL == 1 */
+DRESULT SD_deinitialize (void);
 
 const Diskio_drvTypeDef  SD_Driver =
 {
@@ -107,6 +108,7 @@ const Diskio_drvTypeDef  SD_Driver =
 #if  _USE_IOCTL == 1
   SD_ioctl,
 #endif /* _USE_IOCTL == 1 */
+  SD_deinitialize,
 };
 
 /* USER CODE BEGIN beforeFunctionSection */
@@ -155,6 +157,9 @@ DSTATUS SD_initialize(BYTE lun)
   if(BSP_SD_Init() == MSD_OK)
   {
     Stat = SD_CheckStatus(lun);
+  }else
+  {
+    Stat = STA_NOINIT;
   }
 
 #else
@@ -515,5 +520,23 @@ void BSP_SD_ErrorCallback(void)
 /* USER CODE END ErrorAbortCallbacks */
 
 /* USER CODE BEGIN lastSection */
-/* can be used to modify / undefine previous code or add new code */
+
+/**
+  * @brief  De-initializes the SD Card device
+  * @retval DSTATUS: Operation status
+  */
+DRESULT SD_deinitialize(void)
+{
+
+  Stat = STA_NOINIT;
+
+  if(BSP_SD_DeInit() == MSD_OK)
+  {
+    Stat = MSD_OK;
+  }
+
+  return Stat;
+}
+
+
 /* USER CODE END lastSection */

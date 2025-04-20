@@ -622,6 +622,30 @@ uint32_t SDMMC_CmdWriteMultiBlock(SDIO_TypeDef *SDIOx, uint32_t WriteAdd)
 }
 
 /**
+  * @brief  Send the Write Block Erase Count command and check the response
+  * @param  SDIOx: Pointer to SDIO register base 
+  * @retval HAL status
+  */
+ uint32_t SDMMC_CmdWriteBlkEraseCount(SDIO_TypeDef *SDIOx, uint32_t blockCount)
+ {
+   SDIO_CmdInitTypeDef  sdmmc_cmdinit;
+   uint32_t errorstate;
+   
+   /* Set Block Size for Card */ 
+   sdmmc_cmdinit.Argument         = (uint32_t)blockCount;
+   sdmmc_cmdinit.CmdIndex         = SDMMC_CMD_SD_APP_WRITE_BLOCK_ERASE_COUNT;
+   sdmmc_cmdinit.Response         = SDIO_RESPONSE_SHORT;
+   sdmmc_cmdinit.WaitForInterrupt = SDIO_WAIT_NO;
+   sdmmc_cmdinit.CPSM             = SDIO_CPSM_ENABLE;
+   (void)SDIO_SendCommand(SDIOx, &sdmmc_cmdinit);
+   
+   /* Check for error conditions */
+   errorstate = SDMMC_GetCmdResp1(SDIOx, SDMMC_CMD_SD_APP_WRITE_BLOCK_ERASE_COUNT, SDIO_CMDTIMEOUT);
+ 
+   return errorstate;
+ }
+
+/**
   * @brief  Send the Start Address Erase command for SD and check the response
   * @param  SDIOx: Pointer to SDIO register base 
   * @retval HAL status

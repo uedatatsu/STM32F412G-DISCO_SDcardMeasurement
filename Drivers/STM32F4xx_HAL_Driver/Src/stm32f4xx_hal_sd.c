@@ -257,6 +257,8 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
+#include "event_handler.h"
+#include "stdio.h"
 
 #if defined(SDIO)
 
@@ -1344,6 +1346,15 @@ HAL_StatusTypeDef HAL_SD_WriteBlocks_DMA(SD_HandleTypeDef *hsd, uint8_t *pData, 
     if(NumberOfBlocks > 1U)
     {
       hsd->Context = (SD_CONTEXT_WRITE_MULTIPLE_BLOCK | SD_CONTEXT_DMA);
+
+      if(enableACMD23 == 1U)
+      {
+        /* Send ACMD23 command to set the number of blocks to be written */
+        errorstate = SDMMC_CmdAppCommand(hsd->Instance, (uint32_t)((hsd->SdCard.RelCardAdd) << 16U));
+        errorstate = SDMMC_CmdWriteBlkEraseCount(hsd->Instance, NumberOfBlocks);
+        // printf("ACMD23 sent NumberOfBlocks(%d) error(%d)\n\r", NumberOfBlocks, errorstate);
+
+      }
 
       /* Write Multi Block command */
       errorstate = SDMMC_CmdWriteMultiBlock(hsd->Instance, add);

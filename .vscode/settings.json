@@ -1,6 +1,11 @@
 {
     "files.associations": {
         "stm32412g_discovery_lcd.h": "c",
-        "fatfs_platform.h": "c"
+        "fatfs_platform.h": "c",
+        "sd_diskio.h": "c",
+        "ff_gen_drv.h": "c",
+        "fatfs.h": "c",
+        "stdint.h": "c",
+        "event_handler.h": "c"
     }
 }

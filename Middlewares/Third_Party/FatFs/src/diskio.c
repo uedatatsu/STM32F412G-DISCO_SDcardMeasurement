@@ -66,6 +66,26 @@ DSTATUS disk_initialize (
 }
 
 /**
+  * @brief  De-initializes a Drive
+  * @param  pdrv: Physical drive number (0..)
+  * @retval DRESULT: Operation status
+  */
+ DRESULT disk_deinitialize (
+	BYTE pdrv				/* Physical drive nmuber to identify the drive */
+)
+{
+  DRESULT res = RES_OK;
+
+  if(disk.is_initialized[pdrv] == 1)
+  {
+    disk.is_initialized[pdrv] = 0;
+    res = disk.drv[pdrv]->disk_deinitialize();
+  }
+
+  return res;
+}
+
+/**
   * @brief  Reads Sector(s)
   * @param  pdrv: Physical drive number (0..)
   * @param  *buff: Data buffer to store read data

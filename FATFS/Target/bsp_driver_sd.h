@@ -81,6 +81,8 @@ uint8_t BSP_SD_IsDetected(void);
 void    BSP_SD_AbortCallback(void);
 void    BSP_SD_WriteCpltCallback(void);
 void    BSP_SD_ReadCpltCallback(void);
+
+uint8_t BSP_SD_deInit(void);
 /* USER CODE END BSP_H_CODE */
 #endif
 
